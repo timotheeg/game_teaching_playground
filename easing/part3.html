@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fullscreen Canvas Starter</title>
+    <style>
+      /* Page reset */
+      html, body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden; /* no scrollbars */
+        background: #0b0f14;
+        color: #dbe4ee;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+
+      /* The app root fills the viewport */
+      #app {
+        position: fixed;
+        inset: 0; /* top:0 right:0 bottom:0 left:0 */
+        display: grid;
+        grid-template-rows: 1fr; /* header, canvas area, footer */
+      }
+
+      /* Canvas container fills the remaining space */
+      .stage {
+        position: relative;
+        min-height: 0; /* allow child to size to container without overflow */
+      }
+
+      canvas#stageCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block; /* removes tiny gaps in some browsers */
+        outline: none;
+        cursor: crosshair;
+        /* Do not set the canvas width/height attributes in CSS for pixels. We set them in JS for device pixels. */
+      }
+
+      .hud {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        padding: 6px 8px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      }
+
+      a { color: #8ab4f8; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <main class="stage">
+        <canvas id="stageCanvas" aria-label="Interactive canvas"></canvas>
+        <div class="hud" id="hud">0 × 0 @1x</div>
+      </main>
+    </div>
+
+    <script type="module">
+      import { easing } from './easing.js';
+
+      class Circle {
+        x = 0;
+        y = 0;
+        dx = 0;
+        dy = 0;
+        ax = 0;
+        ay = 0;
+        target = null;
+        reactionFactor = 1/20;
+
+        fillColor = '#8ab4f8';
+        strokeColor = '#ffffff';
+        radius = 50;
+
+        constructor(radius, fillColor, strokeColor) {
+          this.radius = radius;
+          this.fillColor = fillColor;
+          this.strokeColor = strokeColor;
+        }
+
+        accelerate() {
+          this.dx += this.ax;
+          this.dy += this.ay;
+        }
+
+        move() {
+          if (this.target) {
+            this.x += (this.target.x - this.x) * this.reactionFactor;
+            this.y += (this.target.y - this.y) * this.reactionFactor;
+          }
+          else {
+            this.x += this.dx;
+            this.y += this.dy;
+          }
+        }
+
+        moveTowards(target) {
+          this.target = target;
+        }
+
+        render(ctx) {
+          this.#draw(ctx, 4);
+        }
+
+        #draw(ctx, strokeWidth) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = this.fillColor;
+          ctx.fill();
+          ctx.lineWidth = strokeWidth;
+          ctx.strokeStyle = this.strokeColor;
+          ctx.stroke();
+        }
+      }
+
+      // Canvas sizing with device pixel ratio for crisp rendering
+      const easing_function = document.getElementById('easing_function');
+      const duration = document.getElementById('duration');
+      const canvas = document.getElementById('stageCanvas');
+      const hud = document.getElementById('hud');
+      const ctx = canvas.getContext('2d');
+
+      function canvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      }
+
+      let dpr = 1;
+
+      function fitCanvasToViewport() {
+        dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+
+        const { width: cssW, height: cssH } = canvas.getBoundingClientRect();
+
+        // Set internal pixel size to DPR-scaled values
+        const pxW = Math.round(cssW * dpr);
+        const pxH = Math.round(cssH * dpr);
+
+        if (canvas.width !== pxW) canvas.width = pxW;
+        if (canvas.height !== pxH) canvas.height = pxH;
+
+        // Reset transform then scale to map 1 canvas unit to 1 CSS pixel
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+
+        hud.textContent = `${Math.round(cssW)} × ${Math.round(cssH)} @${dpr}x`;
+
+        drawGrid();
+      }
+
+      // Demo draw. Replace with your own scene logic.
+      function drawGrid() {
+        const { width, height } = canvas.getBoundingClientRect();
+
+        // Clear
+        ctx.clearRect(0, 0, width, height);
+
+        // Background grid
+        const grid = 32;
+        ctx.globalAlpha = 0.25;
+        ctx.beginPath();
+        for (let x = 0; x <= width; x += grid) {
+          ctx.moveTo(x + 0.5, 0);
+          ctx.lineTo(x + 0.5, height);
+        }
+        for (let y = 0; y <= height; y += grid) {
+          ctx.moveTo(0, y + 0.5);
+          ctx.lineTo(width, y + 0.5);
+        }
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#2a3947';
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      // Resize handling. Use both resize and a ResizeObserver for safety.
+      const ro = new ResizeObserver(() => fitCanvasToViewport());
+      ro.observe(document.querySelector('.stage'));
+      window.addEventListener('resize', fitCanvasToViewport);
+
+      // Handle DPR changes, for example when moving between screens
+      matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener('change', fitCanvasToViewport, { once: false });
+
+      let worm;
+
+      canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        const mouse = {x: e.clientX - rect.left, y: e.clientY - rect.top};
+        worm[0].moveTowards(mouse);
+      });
+
+      // Render loop
+      function render() {
+        // draw world
+        drawGrid();
+
+        // draw elements
+        worm.forEach(circle => {
+            circle.move();
+            circle.render(ctx);
+        });
+
+        requestAnimationFrame(render);
+      }
+
+      fitCanvasToViewport();
+
+      function run() {
+        // setup
+        worm = [50,40,30,20,10,5].map(radius => new Circle(radius, '#8ab4f8', '#ffffff'));
+        worm.forEach((circle, idx) => {
+            if (idx <= 0) return;
+            circle.moveTowards(worm[idx-1]);
+        });
+
+        render();
+      }
+
+      run();
+    </script>
+  </body>
+</html>
