@@ -1,0 +1,67 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Making your first Phaser 3 Game - Part 7</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+    const STAGE_WIDTH = 800;
+    const STAGE_HEIGHT = 600;
+
+    var config = {
+        type: Phaser.AUTO,
+        width: STAGE_WIDTH,
+        height: STAGE_HEIGHT,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 300 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
+
+    var player;
+    var cursors;
+
+    var game = new Phaser.Game(config);
+
+    function preload ()
+    {
+        this.load.image('sky', 'assets/sky.png');
+        this.load.image('ground', 'assets/platform.png');
+        this.load.image('star', 'assets/star.png');
+        this.load.image('bomb', 'assets/bomb.png');
+        this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
+    }
+
+    function create () {
+        player = this.add.sprite(STAGE_WIDTH / 2, STAGE_HEIGHT / 2, 'dude', 4);
+        player.setOrigin(0.5, 0.65);
+
+        cursors = this.input.keyboard.createCursorKeys();
+    }
+
+    function update () {
+        const { x, y } = this.input.activePointer;
+        player.rotation = Math.atan2(y - player.y, x - player.x) + Math.PI / 2;
+    }
+
+</script>
+
+</body>
+</html>
